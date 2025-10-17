@@ -5,13 +5,26 @@ This is a Go API Based flowchart maker in excel file output using Go Excelize. I
 Right now the prototype is still using URL query based input which there are:
 |Query|Example|Usage|
 |--|--|--|
-|start|G6|starting cell of the flowchart|
-|width|int|width of the shape in all general|
-|height|int|height of the shape in all general|
-|[gap](##gap)|int|how much row gap for each shape|
-|pad|int|padding for the cell on the each shape |
-|[orders](##order)|[1,2,2,4]|order of the shape, those number is depicting the column position|
-|[shapes](##shapes)|[rect,ellipse]|name of the shape based on the go excelize docs|
+|start*|G6|starting cell of the flowchart|
+|width*|int|width of the shape in all general|
+|height*|int|height of the shape in all general|
+|[gap*](##gap)|int|how much row gap for each shape|
+|pad*|int|padding for the cell on the each shape |
+|[orders*](##order)|[1,2,2,4]|order of the shape, those number is depicting the column position|
+|[shapes*](##shapes)|[rect,ellipse]|name of the shape based on the go excelize docs|
+
+note: asterisk or * is a required query
+
+## How to run?
+
+you can compile it or simply run the main.go file in the [cmd/server/main.go](cmd/server/main.go)
+
+then input each query the 
+```
+http://localhost:8080/excel?start=&width=&height=&gap=&pad=&orders=&shapes=
+```
+
+the output file is a random name excel file.
 
 # Changelog / Update
 
@@ -23,3 +36,13 @@ Right now the prototype is still using URL query based input which there are:
 ```
 http://localhost:8080/excel?width=80&height=40&shapes=rect,rect,rect,flowChartDecision&start=D4&gap=1&pad=10&orders=1,1,2,4
 ```
+
+# Additional Explanation
+## gap
+gap explaination here
+
+## orders
+orders explaination here
+
+## shapes
+shapes explaination here
