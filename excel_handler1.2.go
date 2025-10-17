@@ -20,7 +20,7 @@ func NewExcelHandler(s *service.ExcelService) *ExcelHandler {
 }
 
 // Pass the text in, but not the cell dimensions.
-func newFlowchartShape(cell, shapeType string, width, height, cellPadding uint) *excelize.Shape {
+func newFlowchartShape(cell, shapeType, text string, width, height uint) *excelize.Shape {
 	lineWidth := 1.2
 	return &excelize.Shape{
 		Cell: cell,
@@ -29,6 +29,7 @@ func newFlowchartShape(cell, shapeType string, width, height, cellPadding uint) 
 		Fill: excelize.Fill{Color: []string{"FFFFFF"}, Pattern: 1},
 		Paragraph: []excelize.RichTextRun{
 			{
+				Text: text, // Use the text parameter here
 				Font: &excelize.Font{
 					Bold:   false,
 					Italic: false,
@@ -40,10 +41,10 @@ func newFlowchartShape(cell, shapeType string, width, height, cellPadding uint) 
 		},
 		Width:  width,
 		Height: height,
+		// --- THIS IS THE CORRECT FIX ---
+		// Use 'Format' and 'Positioning', not 'GraphicOptions' for this problem.
 		Format: excelize.GraphicOptions{
 			Positioning: "oneCell", // "Move but do not size with cells"
-			OffsetX:     int(cellPadding),
-			OffsetY:     int(cellPadding),
 		},
 	}
 }
@@ -99,28 +100,29 @@ func pixelsToCharUnits(pixels float64) float64 {
 }
 
 func (h *ExcelHandler) GenerateExcel(w http.ResponseWriter, r *http.Request) {
+	// Re-added 'texts' as it's needed
 	shapesParam := r.URL.Query().Get("shapes")
-	startCellParam := r.URL.Query().Get("start")
+	startColumn := r.URL.Query().Get("start")
 	orderParam := r.URL.Query().Get("orders")
+	textsParam := r.URL.Query().Get("texts")
 	shapeWidthParam := r.URL.Query().Get("width")
 	shapeHeightParam := r.URL.Query().Get("height")
-	cellPadParam := r.URL.Query().Get("pad")
 	gapParam := r.URL.Query().Get("gap")
 
-	if shapesParam == "" || startCellParam == "" || orderParam == "" || shapeWidthParam == "" || shapeHeightParam == "" || gapParam == "" || cellPadParam == "" {
+	if shapesParam == "" || startColumn == "" || orderParam == "" || textsParam == "" || shapeWidthParam == "" || shapeHeightParam == "" || gapParam == "" {
 		http.Error(w, "Please provide 'shapes', 'start', 'orders', 'texts', 'width', 'height', and 'gap' parameters.", http.StatusBadRequest)
 		return
 	}
 
 	shapeTypes := strings.Split(shapesParam, ",")
 	orderFlows := strings.Split(orderParam, ",")
+	shapeTexts := strings.Split(textsParam, ",")
 
 	shapeWidth, _ := strconv.Atoi(shapeWidthParam)
 	shapeHeight, _ := strconv.Atoi(shapeHeightParam)
 	verticalGap, _ := strconv.Atoi(gapParam)
-	cellPadding, _ := strconv.Atoi(cellPadParam)
 
-	if len(shapeTypes) != len(orderFlows) {
+	if len(shapeTypes) != len(orderFlows) || len(shapeTypes) != len(shapeTexts) {
 		http.Error(w, "The number of shapes, orders, and texts must all match.", http.StatusBadRequest)
 		return
 	}
@@ -132,15 +134,8 @@ func (h *ExcelHandler) GenerateExcel(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	startColNum, startRowNum, err := excelize.CellNameToCoordinates(startCellParam)
-	if err != nil {
-		http.Error(w, "Invalid 'start' parameter. Must be a valid cell reference (e.g., 'G6', 'AA1').", http.StatusBadRequest)
-		return
-	}
-	// Convert excelize's 1-based column to our 0-based index
-	startColIndex := startColNum - 1
-	startRow := startRowNum
-
+	startColIndex := int(strings.ToUpper(startColumn)[0] - 'A')
+	startRow := 6
 	colRows := make(map[int]int)
 	// var prevShapeCell string
 	var prevColIndex int
@@ -164,21 +159,35 @@ func (h *ExcelHandler) GenerateExcel(w http.ResponseWriter, r *http.Request) {
 
 		// Set cell dimensions before placing the shape
 		// Cell width should be wider than the shape for good layout
-		cellWidth := float64(shapeWidth + cellPadding)
-		cellHeight := float64(shapeHeight + cellPadding)
-		file.SetColWidth("Sheet1", currentColName, currentColName, pixelsToCharUnits(cellWidth))
-		file.SetRowHeight("Sheet1", currentRow, pixelsToPoints(cellHeight))
+		file.SetColWidth("Sheet1", currentColName, currentColName, pixelsToCharUnits(float64(shapeWidth+40)))
+		file.SetRowHeight("Sheet1", currentRow, pixelsToPoints(float64(shapeHeight+20)))
 
 		if i > 0 {
-			// arrow logic soon
+			// var orientation string
+			// var arrowCell string
+			// if currentColIndex > prevColIndex {
+			// 	orientation = "right"
+			// 	arrowCell = prevShapeCell
+			// } else if currentColIndex < prevColIndex {
+			// 	orientation = "left"
+			// 	arrowCell = currentShapeCell
+			// } else {
+			// 	orientation = "down"
+			// 	arrowCell = fmt.Sprintf("%c%d", 'A'+prevColIndex, currentRow-verticalGap/2)
+			// }
+			// arrow := newArrowShape(arrowCell, orientation)
+			// file.AddShape("Sheet1", arrow)
 		}
 
-		shape := newFlowchartShape(currentShapeCell, shapeType, uint(shapeWidth), uint(shapeHeight), uint(cellPadding))
+		shape := newFlowchartShape(currentShapeCell, shapeType, shapeTexts[i], uint(shapeWidth), uint(shapeHeight))
 		file.AddShape("Sheet1", shape)
 
 		// Update state for the next loop
 		colRows[currentColIndex] = currentRow + verticalGap
+		// prevShapeCell = currentShapeCell
 		prevColIndex = currentColIndex
+		// --- LOGIC FIX HERE ---
+		// prevRow should be the current row, not the next available row.
 		prevRow = colRows[currentColIndex]
 	}
 

@@ -21,7 +21,7 @@ func main() {
 
 	// Start server
 	log.Println("🚀 Server running at http://localhost:8080")
-	if err := http.ListenAndServe(":8080", r); err != nil {
+	if err := http.ListenAndServe("localhost:8080", r); err != nil {
 		log.Fatal(err)
 	}
 }
