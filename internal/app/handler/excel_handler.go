@@ -225,9 +225,10 @@ func (h *ExcelHandler) GenerateExcel(w http.ResponseWriter, r *http.Request) {
 		logs = append(logs, debugLog{i, "Shape Type", shapeType})
 		logs = append(logs, debugLog{i, "Order", orderFlows[i]})
 		logs = append(logs, debugLog{i, "Prev Cell", prevShapeCell})
-		logs = append(logs, debugLog{i, "Current Cell", currentShapeCell})
-		logs = append(logs, debugLog{i, "Cell Width", fmt.Sprintf("%.2f", cellWidth)})
-		logs = append(logs, debugLog{i, "Cell Height", fmt.Sprintf("%.2f", cellHeight)})
+		logs = append(logs, debugLog{i, "Shape Anchor Cell", currentShapeCell})
+		logs = append(logs, debugLog{i, "Cell WxH", fmt.Sprintf("%.0fx%.0f", cellWidth, cellHeight)})
+		logs = append(logs, debugLog{i, "Shape OffsetX", strconv.Itoa(cellPadding)})
+		logs = append(logs, debugLog{i, "Shape OffsetY", strconv.Itoa(cellPadding)})
 
 		if i > 0 {
 			var orientation string
@@ -254,10 +255,18 @@ func (h *ExcelHandler) GenerateExcel(w http.ResponseWriter, r *http.Request) {
 			if orientation == "differ" {
 				aw := (cellWidth-float64(shapeWidth))/2 + cellWidth*(float64(widthDiff)-1) + cellWidth/2
 				ah := (cellHeight-float64(shapeHeight))/2 + cellHeight*(float64(heightDiff)-1) + cellHeight/2
+				offsetX := (cellWidth-float64(shapeWidth))/2 + float64(shapeWidth)
+				offsetY := cellHeight / 2
 				logs = append(logs, debugLog{i, "Arrow Width (calc)", fmt.Sprintf("%.2f", aw)})
 				logs = append(logs, debugLog{i, "Arrow Height (calc)", fmt.Sprintf("%.2f", ah)})
+				logs = append(logs, debugLog{i, "Arrow OffsetX (calc)", fmt.Sprintf("%.0f", offsetX)})
+				logs = append(logs, debugLog{i, "Arrow OffsetY (calc)", fmt.Sprintf("%.0f", offsetY)})
 			} else {
+				offsetX := cellWidth / 2
+				offsetY := (cellHeight-float64(shapeHeight))/2 + float64(shapeHeight)
 				logs = append(logs, debugLog{i, "Arrow Height (calc)", strconv.Itoa(cellPadding)})
+				logs = append(logs, debugLog{i, "Arrow OffsetX (calc)", fmt.Sprintf("%.0f", offsetX)})
+				logs = append(logs, debugLog{i, "Arrow OffsetY (calc)", fmt.Sprintf("%.0f", offsetY)})
 			}
 		}
 
