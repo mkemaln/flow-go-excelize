@@ -53,7 +53,7 @@ func createImprovedArrow(cell, originPos, targetPos, orientation string, shapeWi
 	var shapes []*excelize.Shape
 	lineWidth := 0.5
 
-	widthDiff, _, err := getCellDifference(originPos, targetPos)
+	widthDiff, heightDiff, err := getCellDifference(originPos, targetPos)
 	if err != nil {
 		return nil, err
 	}
@@ -178,7 +178,7 @@ func createBentConnector(originCell, targetCell string, originWidth, originHeigh
 	case "rightDown":
 		// L-shape: horizontal then vertical down
 		horizontalEndX := targetCenterX - targetWidth/2
-		// horizontalEndY := originCenterY
+		horizontalEndY := originCenterY
 
 		// First segment: horizontal line from origin to bend point
 		if horizontalEndX > originCenterX {
@@ -236,7 +236,7 @@ func createBentConnector(originCell, targetCell string, originWidth, originHeigh
 	case "rightUp":
 		// L-shape: horizontal then vertical up
 		horizontalEndX := targetCenterX - targetWidth/2
-		// horizontalEndY := originCenterY
+		horizontalEndY := originCenterY
 
 		// First segment: horizontal line from origin to bend point
 		if horizontalEndX > originCenterX {
