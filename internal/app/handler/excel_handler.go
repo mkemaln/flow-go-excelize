@@ -3,6 +3,7 @@ package handler
 import (
 	"fmt"
 	"go_excelize/internal/app/service"
+	"math"
 	"math/rand"
 	"net/http"
 	"strconv"
@@ -48,290 +49,191 @@ func newFlowchartShape(cell, shapeType string, width, height, cellPadding uint) 
 	}
 }
 
-// Enhanced arrow creation using straight connectors instead of rect shapes
-func createImprovedArrow(cell, originPos, targetPos, orientation string, shapeWidth, shapeHeight, cellWidth, cellHeight float64, arrowLength int) ([]*excelize.Shape, error) {
-	var shapes []*excelize.Shape
-	lineWidth := 0.5
+func newArrowShape(cell, originPos, targetPos, orientation string, shapeWidth, shapeHeight, cellWidth, cellHeight float64, arrowLength int) (*excelize.Shape, *excelize.Shape) {
+	// lineWidth := 0.25
+	lineWidth := 2.0
+	// line := &excelize.Shape{
+	// 	Cell: cell,
+	// 	Line: excelize.ShapeLine{Color: "060270", Width: &lineWidth},
+	// 	Fill: excelize.Fill{Color: []string{"060270"}, Pattern: 1},
+	// }
 
-	widthDiff, _, err := getCellDifference(originPos, targetPos)
-	if err != nil {
-		return nil, err
+	// arrowHead := &excelize.Shape{
+	// 	Line: excelize.ShapeLine{Color: "060270", Width: &lineWidth},
+	// 	Fill: excelize.Fill{Color: []string{"060270"}, Pattern: 1},
+	// }
+	line := &excelize.Shape{
+		Cell: cell,
+		Line: excelize.ShapeLine{Color: "000000", Width: &lineWidth},
+		Fill: excelize.Fill{Color: []string{"000000"}, Pattern: 1},
 	}
 
-	// Handle basic orientations with improved straight connectors
+	arrowHead := &excelize.Shape{
+		Line: excelize.ShapeLine{Color: "000000", Width: &lineWidth},
+		Fill: excelize.Fill{Color: []string{"000000"}, Pattern: 1},
+	}
+
+	// widthDiff is now SIGNED. e.g., -1 for left, +1 for right.
+	widthDiff, heightDiff, err := getCellDifference(originPos, targetPos)
+	if err != nil {
+		fmt.Println("Error:", err)
+	}
+
+	colNum, rowNum, err := excelize.CellNameToCoordinates(cell)
+	if err != nil {
+		fmt.Println("Error:", err)
+	}
+
+	// Use absolute values for width/height calculations
+	absWidthDiff := math.Abs(float64(widthDiff))
+	absHeightDiff := math.Abs(float64(heightDiff))
+
 	switch orientation {
 	case "downConn":
-		// Vertical connector using downArrow
-		downArrow := &excelize.Shape{
-			Cell:   cell,
-			Type:   "downArrow",
-			Line:   excelize.ShapeLine{Color: "060270", Width: &lineWidth},
-			Fill:   excelize.Fill{Color: []string{"060270"}, Pattern: 1},
-			Width:  uint(lineWidth * 2),
-			Height: uint(arrowLength),
-			Format: excelize.GraphicOptions{
-				OffsetX: int(cellWidth/2 - lineWidth),
-				OffsetY: int((cellHeight-shapeHeight)/2 + shapeHeight),
-			},
+		arrowX := cellWidth / 2
+		arrowY := (cellHeight-shapeHeight)/2 + shapeHeight - (cellHeight-shapeHeight)/2 // - 5 is added because for some reason there were a down offset
+
+		line.Type = "downArrow"
+		line.Width = 1
+		line.Height = uint(arrowLength)
+		line.Format = excelize.GraphicOptions{
+			OffsetX: int(arrowX),
+			OffsetY: int(arrowY),
 		}
-		shapes = append(shapes, downArrow)
+
+		arrowHead = nil
 
 	case "rightConn":
-		// Horizontal connector using straightConnector1
-		if widthDiff > 0 {
-			horizontalWidth := float64(widthDiff) * cellWidth
-			horizontalLine := &excelize.Shape{
-				Cell:   cell,
-				Type:   "straightConnector1",
-				Line:   excelize.ShapeLine{Color: "060270", Width: &lineWidth},
-				Fill:   excelize.Fill{Color: []string{"060270"}, Pattern: 1},
-				Width:  uint(horizontalWidth),
-				Height: uint(lineWidth),
-				Format: excelize.GraphicOptions{
-					OffsetX: int((cellWidth-shapeWidth)/2 + shapeWidth),
-					OffsetY: int(cellHeight/2 - lineWidth/2),
-				},
-			}
-			shapes = append(shapes, horizontalLine)
+		arrowX := (cellWidth-shapeWidth)/2 + shapeWidth - (cellWidth-shapeWidth)/2
+		arrowY := cellHeight / 2
+		arrowWidth := (cellWidth-shapeWidth)/2 + cellWidth*(absWidthDiff-1) + cellWidth/2 + (cellWidth - shapeWidth) // add 1 padding
+		arrowHeight := (cellHeight-shapeHeight)/2 + cellHeight*(absHeightDiff-1) + cellHeight/2
 
-			// Arrow head pointing right
-			arrowHead := &excelize.Shape{
-				Type:   "rightArrow",
-				Line:   excelize.ShapeLine{Color: "060270", Width: &lineWidth},
-				Fill:   excelize.Fill{Color: []string{"060270"}, Pattern: 1},
-				Width:  uint(lineWidth * 4),
-				Height: uint(lineWidth * 3),
-				Format: excelize.GraphicOptions{
-					OffsetX: int((cellWidth-shapeWidth)/2 + shapeWidth + horizontalWidth - 2),
-					OffsetY: int(cellHeight/2 - lineWidth*1.5),
-				},
-			}
-			shapes = append(shapes, arrowHead)
+		line.Type = "rect"
+		line.Cell = cell
+		line.Width = uint(arrowWidth)
+		line.Height = 1
+		line.Format = excelize.GraphicOptions{
+			OffsetX: int(arrowX),
+			OffsetY: int(arrowY),
 		}
 
+		arrowHead.Type = "downArrow"
+		arrowHead.Cell = fmt.Sprintf("%c%d", 'A'+(colNum+widthDiff-1), rowNum)
+		arrowHead.Width = 1
+		arrowHead.Height = uint(arrowHeight)
+		arrowHead.Format = excelize.GraphicOptions{
+			OffsetX: int(cellWidth) / 2,
+			OffsetY: int(cellHeight) / 2,
+		}
 	case "leftConn":
-		// Horizontal connector using straightConnector1 (left)
-		if widthDiff < 0 {
-			horizontalWidth := float64(-widthDiff) * cellWidth
-			horizontalLine := &excelize.Shape{
-				Cell:   targetPos,
-				Type:   "straightConnector1",
-				Line:   excelize.ShapeLine{Color: "060270", Width: &lineWidth},
-				Fill:   excelize.Fill{Color: []string{"060270"}, Pattern: 1},
-				Width:  uint(horizontalWidth),
-				Height: uint(lineWidth),
-				Format: excelize.GraphicOptions{
-					OffsetX: int(0),
-					OffsetY: int(cellHeight/2 - lineWidth/2),
-				},
-			}
-			shapes = append(shapes, horizontalLine)
+		arrowX := cellWidth / 2
+		arrowY := cellHeight / 2
+		arrowWidth := (cellWidth-shapeWidth)/2 + cellWidth*(absWidthDiff-1) + cellWidth/2
+		arrowHeight := (cellHeight-shapeHeight)/2 + cellHeight*(absHeightDiff-1) + cellHeight/2
 
-			// Arrow head pointing left
-			arrowHead := &excelize.Shape{
-				Cell:   targetPos,
-				Type:   "leftArrow",
-				Line:   excelize.ShapeLine{Color: "060270", Width: &lineWidth},
-				Fill:   excelize.Fill{Color: []string{"060270"}, Pattern: 1},
-				Width:  uint(lineWidth * 4),
-				Height: uint(lineWidth * 3),
-				Format: excelize.GraphicOptions{
-					OffsetX: int(-lineWidth * 2),
-					OffsetY: int(cellHeight/2 - lineWidth*1.5),
-				},
-			}
-			shapes = append(shapes, arrowHead)
+		line.Type = "rect"
+		// --- FIX: Anchor to target cell ---
+		line.Cell = targetPos
+		line.Width = uint(arrowWidth)
+		line.Height = 1
+		line.Format = excelize.GraphicOptions{
+			OffsetX: int(arrowX),
+			OffsetY: int(arrowY),
+		}
+
+		arrowHead.Type = "downArrow"
+		// --- FIX: Anchor to target cell ---
+		arrowHead.Cell = targetPos
+		arrowHead.Width = 1
+		arrowHead.Height = uint(arrowHeight)
+		arrowHead.Format = excelize.GraphicOptions{
+			OffsetX: int(cellWidth) / 2,
+			OffsetY: int(cellHeight) / 2,
+		}
+	case "upperRightConn":
+		arrowX := (cellWidth-shapeWidth)/2 + shapeWidth - 5
+		arrowY := cellHeight / 2
+		arrowWidth := (cellWidth-shapeWidth)/2 + cellWidth*(absWidthDiff-1) + cellWidth/2
+		arrowHeight := (cellHeight-shapeHeight)/2 + cellHeight*(absHeightDiff-1) + cellHeight/2
+
+		line.Type = "rect"
+		line.Cell = originPos
+		line.Width = uint(arrowWidth)
+		line.Height = 1
+		line.Format = excelize.GraphicOptions{
+			OffsetX: int(arrowX),
+			OffsetY: int(arrowY),
+		}
+
+		arrowHead.Type = "upArrow"
+		arrowHead.Cell = fmt.Sprintf("%c%d", 'A'+(colNum+widthDiff-1), rowNum)
+		arrowHead.Width = 1
+		arrowHead.Height = uint(arrowHeight)
+		arrowHead.Format = excelize.GraphicOptions{
+			OffsetX: int(cellWidth) / 2,
+			OffsetY: int(cellHeight) / 2,
+		}
+	case "upperLeftConn":
+		arrowX := cellWidth / 2
+		arrowY := cellHeight / 2
+		arrowWidth := (cellWidth-shapeWidth)/2 + cellWidth*(absWidthDiff-1) + cellWidth/2
+		arrowHeight := (cellHeight-shapeHeight)/2 + cellHeight*(absHeightDiff-1) + cellHeight/2
+
+		line.Type = "rect"
+		line.Cell = originPos
+		line.Width = uint(arrowWidth)
+		line.Height = 1
+		line.Format = excelize.GraphicOptions{
+			OffsetX: int(arrowX),
+			OffsetY: int(arrowY),
+		}
+
+		arrowHead.Type = "upArrow"
+		arrowHead.Cell = fmt.Sprintf("%c%d", 'A'+(colNum+widthDiff-1), rowNum)
+		arrowHead.Width = 1
+		arrowHead.Height = uint(arrowHeight)
+		arrowHead.Format = excelize.GraphicOptions{
+			OffsetX: int(cellWidth) / 2,
+			OffsetY: int(cellHeight) / 2,
 		}
 	}
-
-	return shapes, nil
+	return line, arrowHead
 }
 
-// Bent connector creation using L-shaped segments
-func createBentConnector(originCell, targetCell string, originWidth, originHeight, targetWidth, targetHeight, cellWidth, cellHeight float64, direction string) ([]*excelize.Shape, error) {
-	var shapes []*excelize.Shape
-	lineWidth := 0.5
+// --- REMOVED findCellByOrder function ---
 
-	// Parse cell coordinates
-	originCol, originRow, err := excelize.CellNameToCoordinates(originCell)
-	if err != nil {
-		return nil, err
+// --- NEW HELPER FUNCTION ---
+// Parses a branch query string (e.g., "1:2,4:5") into a map[originIndex]targetIndex
+func parseBranchParam(param string) (map[int]int, error) {
+	branches := make(map[int]int)
+	if param == "" {
+		return branches, nil
 	}
-	targetCol, targetRow, err := excelize.CellNameToCoordinates(targetCell)
-	if err != nil {
-		return nil, err
+	// param is "1:2,4:5"
+	pairs := strings.Split(param, ",") // ["1:2", "4:5"]
+	for _, pair := range pairs {
+		parts := strings.Split(pair, ":") // ["1", "2"]
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("invalid branch format: %s", pair)
+		}
+		originIndex, err1 := strconv.Atoi(parts[0])
+		targetIndex, err2 := strconv.Atoi(parts[1]) // Now parses a target *index*
+		if err1 != nil || err2 != nil {
+			return nil, fmt.Errorf("invalid branch numbers: %s", pair)
+		}
+		branches[originIndex] = targetIndex
 	}
-
-	// Calculate the actual pixel positions
-	originX := float64(originCol-1) * cellWidth
-	originY := float64(originRow-1) * cellHeight
-	targetX := float64(targetCol-1) * cellWidth
-	targetY := float64(targetRow-1) * cellHeight
-
-	// Calculate center points of shapes
-	originCenterX := originX + originWidth/2
-	originCenterY := originY + originHeight/2
-	targetCenterX := targetX + targetWidth/2
-	targetCenterY := targetY + targetHeight/2
-
-	switch direction {
-	case "rightDown":
-		// L-shape: horizontal then vertical down
-		horizontalEndX := targetCenterX - targetWidth/2
-		// horizontalEndY := originCenterY
-
-		// First segment: horizontal line from origin to bend point
-		if horizontalEndX > originCenterX {
-			seg1Width := horizontalEndX - originCenterX
-			seg1X := originCenterX + 5 // Small offset from shape edge
-			seg1Y := originCenterY - (lineWidth / 2)
-
-			shapes = append(shapes, &excelize.Shape{
-				Type:   "straightConnector1",
-				Line:   excelize.ShapeLine{Color: "060270", Width: &lineWidth},
-				Fill:   excelize.Fill{Color: []string{"060270"}, Pattern: 1},
-				Width:  uint(seg1Width),
-				Height: uint(lineWidth),
-				Format: excelize.GraphicOptions{
-					OffsetX: int(seg1X),
-					OffsetY: int(seg1Y),
-				},
-			})
-		}
-
-		// Second segment: vertical line from bend point to target
-		if targetCenterY > originCenterY {
-			seg2Height := targetCenterY - originCenterY
-			seg2X := horizontalEndX - (lineWidth / 2)
-			seg2Y := originCenterY + 5 // Small offset from horizontal line
-
-			shapes = append(shapes, &excelize.Shape{
-				Type:   "straightConnector1",
-				Line:   excelize.ShapeLine{Color: "060270", Width: &lineWidth},
-				Fill:   excelize.Fill{Color: []string{"060270"}, Pattern: 1},
-				Width:  uint(lineWidth),
-				Height: uint(seg2Height),
-				Format: excelize.GraphicOptions{
-					OffsetX: int(seg2X),
-					OffsetY: int(seg2Y),
-				},
-			})
-		}
-
-		// Arrow head at target
-		if targetCenterY > originCenterY {
-			shapes = append(shapes, &excelize.Shape{
-				Type:   "downArrow",
-				Line:   excelize.ShapeLine{Color: "060270", Width: &lineWidth},
-				Fill:   excelize.Fill{Color: []string{"060270"}, Pattern: 1},
-				Width:  uint(lineWidth * 3),
-				Height: uint(lineWidth * 6),
-				Format: excelize.GraphicOptions{
-					OffsetX: int(targetCenterX - (lineWidth * 1.5)),
-					OffsetY: int(targetCenterY - targetHeight/2 - 10),
-				},
-			})
-		}
-
-	case "rightUp":
-		// L-shape: horizontal then vertical up
-		horizontalEndX := targetCenterX - targetWidth/2
-		// horizontalEndY := originCenterY
-
-		// First segment: horizontal line from origin to bend point
-		if horizontalEndX > originCenterX {
-			seg1Width := horizontalEndX - originCenterX
-			seg1X := originCenterX + 5
-			seg1Y := originCenterY - (lineWidth / 2)
-
-			shapes = append(shapes, &excelize.Shape{
-				Type:   "straightConnector1",
-				Line:   excelize.ShapeLine{Color: "060270", Width: &lineWidth},
-				Fill:   excelize.Fill{Color: []string{"060270"}, Pattern: 1},
-				Width:  uint(seg1Width),
-				Height: uint(lineWidth),
-				Format: excelize.GraphicOptions{
-					OffsetX: int(seg1X),
-					OffsetY: int(seg1Y),
-				},
-			})
-		}
-
-		// Second segment: vertical line from bend point to target (upwards)
-		if targetCenterY < originCenterY {
-			seg2Height := originCenterY - targetCenterY
-			seg2X := horizontalEndX - (lineWidth / 2)
-			seg2Y := targetCenterY + targetHeight/2 - 5
-
-			shapes = append(shapes, &excelize.Shape{
-				Type:   "straightConnector1",
-				Line:   excelize.ShapeLine{Color: "060270", Width: &lineWidth},
-				Fill:   excelize.Fill{Color: []string{"060270"}, Pattern: 1},
-				Width:  uint(lineWidth),
-				Height: uint(seg2Height),
-				Format: excelize.GraphicOptions{
-					OffsetX: int(seg2X),
-					OffsetY: int(seg2Y),
-				},
-			})
-		}
-
-		// Arrow head at target (pointing up)
-		if targetCenterY < originCenterY {
-			shapes = append(shapes, &excelize.Shape{
-				Type:   "upArrow",
-				Line:   excelize.ShapeLine{Color: "060270", Width: &lineWidth},
-				Fill:   excelize.Fill{Color: []string{"060270"}, Pattern: 1},
-				Width:  uint(lineWidth * 3),
-				Height: uint(lineWidth * 6),
-				Format: excelize.GraphicOptions{
-					OffsetX: int(targetCenterX - (lineWidth * 1.5)),
-					OffsetY: int(targetCenterY + targetHeight/2 + 4),
-				},
-			})
-		}
-	}
-
-	return shapes, nil
-}
-
-// Helper function to determine connector direction based on cell positions
-func determineConnectorDirection(originCol, originRow, targetCol, targetRow int) string {
-	if originCol == targetCol {
-		if targetRow > originRow {
-			return "downConn"
-		} else {
-			return "upConn" // Assuming upConn support exists
-		}
-	} else if targetCol > originCol {
-		if targetRow > originRow {
-			return "rightDown"
-		} else {
-			return "rightUp"
-		}
-	} else { // targetCol < originCol
-		if targetRow > originRow {
-			return "leftDown"
-		} else {
-			return "leftUp"
-		}
-	}
-}
-
-// Helper function to find cell by order
-func findCellByOrder(targetOrder int, shapeOrders map[int]int, shapeLocations map[int]string) string {
-	for i, order := range shapeOrders {
-		if order == targetOrder {
-			return shapeLocations[i]
-		}
-	}
-	return ""
+	return branches, nil
 }
 
 func (h *ExcelHandler) GenerateExcel(w http.ResponseWriter, r *http.Request) {
+	// --- Read new parameters ---
 	shapesParam := r.URL.Query().Get("shapes")
 	startCellParam := r.URL.Query().Get("start")
 	orderParam := r.URL.Query().Get("orders")
+	trueBranchesParam := r.URL.Query().Get("true_branches")
+	falseBranchesParam := r.URL.Query().Get("false_branches")
 	shapeWidthParam := r.URL.Query().Get("width")
 	shapeHeightParam := r.URL.Query().Get("height")
 	cellPadParam := r.URL.Query().Get("pad")
@@ -348,6 +250,18 @@ func (h *ExcelHandler) GenerateExcel(w http.ResponseWriter, r *http.Request) {
 	shapeHeight, _ := strconv.Atoi(shapeHeightParam)
 	verticalGap, _ := strconv.Atoi(gapParam)
 	cellPadding, _ := strconv.Atoi(cellPadParam)
+
+	// --- Parse new branch parameters (now index-to-index) ---
+	trueBranches, errT := parseBranchParam(trueBranchesParam)
+	if errT != nil {
+		http.Error(w, fmt.Sprintf("Invalid 'true_branches' param: %v", errT), http.StatusBadRequest)
+		return
+	}
+	falseBranches, errF := parseBranchParam(falseBranchesParam)
+	if errF != nil {
+		http.Error(w, fmt.Sprintf("Invalid 'false_branches' param: %v", errF), http.StatusBadRequest)
+		return
+	}
 
 	if len(shapeTypes) != len(orderFlows) {
 		http.Error(w, "The number of shapes and orders must all match.", http.StatusBadRequest)
@@ -373,72 +287,19 @@ func (h *ExcelHandler) GenerateExcel(w http.ResponseWriter, r *http.Request) {
 	var prevColIndex int
 	var prevRow int
 
-	// Maps to store locations and branch logic
-	shapeLocations := make(map[int]string)
-	shapeOrders := make(map[int]int)
+	// --- Maps to store locations and branch logic ---
+	shapeLocations := make(map[int]string) // Key: shape index (i), Value: "G6"
+	// shapeOrders map is no longer needed for branching
 
-	type BranchInfo struct {
-		FalseTargetOrder int
-		TrueTargetOrder  int
-	}
-	decisionBranches := make(map[int]BranchInfo)
-
-	// FIRST LOOP: Place shapes and record information
+	// --- FIRST LOOP: Place shapes and record information ---
 	for i, shapeType := range shapeTypes {
-		var order int
-		var falseBranchOrder int = -1
-		var trueBranchOrder int = -1
-		var err error
-
 		orderFlow := orderFlows[i]
 
-		if shapeType == "flowChartDecision" {
-			if !strings.Contains(orderFlow, ":") {
-				msg := fmt.Sprintf("Shape at index %d is 'flowChartDecision' but is missing branch targets in 'orders' (e.g., '2:1,3').", i)
-				http.Error(w, msg, http.StatusBadRequest)
-				return
-			}
-			parts := strings.Split(orderFlow, ":")
-			if len(parts) != 2 {
-				http.Error(w, fmt.Sprintf("Invalid order format for decision at index %d: %s", i, orderFlow), http.StatusBadRequest)
-				return
-			}
-			branchParts := strings.Split(parts[1], ",")
-			if len(branchParts) != 2 {
-				http.Error(w, fmt.Sprintf("Decision at index %d must have two branch targets (e.g., '2:1,3'). Found: %s", i, parts[1]), http.StatusBadRequest)
-				return
-			}
-
-			var orderNum, fBranch, tBranch int
-			var err1, err2, err3 error
-			orderNum, err1 = strconv.Atoi(parts[0])
-			fBranch, err2 = strconv.Atoi(branchParts[0])
-			tBranch, err3 = strconv.Atoi(branchParts[1])
-
-			if err1 != nil || err2 != nil || err3 != nil {
-				http.Error(w, fmt.Sprintf("Invalid number in order/branch targets for decision at index %d: %s", i, orderFlow), http.StatusBadRequest)
-				return
-			}
-			order = orderNum
-			falseBranchOrder = fBranch
-			trueBranchOrder = tBranch
-
-			decisionBranches[i] = BranchInfo{
-				FalseTargetOrder: falseBranchOrder,
-				TrueTargetOrder:  trueBranchOrder,
-			}
-
-		} else {
-			if strings.Contains(orderFlow, ":") {
-				msg := fmt.Sprintf("Shape at index %d (%s) is not a decision, but 'orders' has branch targets: %s", i, shapeType, orderFlow)
-				http.Error(w, msg, http.StatusBadRequest)
-				return
-			}
-			order, err = strconv.Atoi(orderFlow)
-			if err != nil {
-				http.Error(w, fmt.Sprintf("Invalid order number for shape at index %d: %s", i, orderFlow), http.StatusBadRequest)
-				return
-			}
+		// --- Simplified 'orders' parsing (complex validation removed) ---
+		order, err := strconv.Atoi(orderFlow)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Invalid order number for shape at index %d: %s", i, orderFlow), http.StatusBadRequest)
+			return
 		}
 
 		currentColIndex := startColIndex + (order - 1)
@@ -462,100 +323,132 @@ func (h *ExcelHandler) GenerateExcel(w http.ResponseWriter, r *http.Request) {
 		shape := newFlowchartShape(currentShapeCell, shapeType, uint(shapeWidth), uint(shapeHeight), uint(cellPadding))
 		file.AddShape("Sheet1", shape)
 
+		// --- RECORD data for the second loop ---
 		shapeLocations[i] = currentShapeCell
-		shapeOrders[i] = order
+		// shapeOrders[i] = order // No longer needed for branching
 
+		// Update state for the next loop
 		colRows[currentColIndex] = currentRow + verticalGap
 		prevColIndex = currentColIndex
 		prevRow = colRows[currentColIndex]
 	}
 
-	// SECOND LOOP: Draw all arrows using improved connector functions
+	// --- SECOND LOOP: Draw all arrows ---
 	for i, shapeType := range shapeTypes {
 		originCell := shapeLocations[i]
 		cellWidth := float64(shapeWidth + cellPadding)
 		cellHeight := float64(shapeHeight + cellPadding)
 
-		if shapeType == "flowChartDecision" {
-			branchInfo := decisionBranches[i]
+		isDecision := (shapeType == "flowChartDecision")
+		hasTrueBranch := false
+		hasFalseBranch := false
 
-			// FALSE branch arrow
-			targetCellFalse := findCellByOrder(branchInfo.FalseTargetOrder, shapeOrders, shapeLocations)
-			if targetCellFalse != "" {
-				shapes, err := createImprovedArrow(originCell, originCell, targetCellFalse, "rightConn", float64(shapeWidth), float64(shapeHeight), cellWidth, cellHeight, cellPadding)
-				if err != nil {
-					fmt.Printf("Error creating FALSE branch arrow: %v\n", err)
-				} else {
-					for _, shape := range shapes {
-						file.AddShape("Sheet1", shape)
-					}
-				}
-			}
-
-			// TRUE branch arrow
-			targetCellTrue := findCellByOrder(branchInfo.TrueTargetOrder, shapeOrders, shapeLocations)
-			if targetCellTrue != "" {
-				shapes, err := createImprovedArrow(originCell, originCell, targetCellTrue, "downConn", float64(shapeWidth), float64(shapeHeight), cellWidth, cellHeight, cellPadding)
-				if err != nil {
-					fmt.Printf("Error creating TRUE branch arrow: %v\n", err)
-				} else {
-					for _, shape := range shapes {
-						file.AddShape("Sheet1", shape)
-					}
-				}
-			}
-
-		} else if i < len(shapeTypes)-1 {
-			// Regular shape connections
-			if _, isDecision := decisionBranches[i]; !isDecision {
-				targetCell := shapeLocations[i+1]
+		// --- Logic for drawing "true" branch ---
+		if targetIndex, exists := trueBranches[i]; exists {
+			hasTrueBranch = true
+			if targetCell, ok := shapeLocations[targetIndex]; ok {
+				// We have an origin and a target cell, draw the arrow
 				originCol, _, _ := excelize.CellNameToCoordinates(originCell)
 				targetCol, _, _ := excelize.CellNameToCoordinates(targetCell)
-
-				var orientation string
-				if originCol == targetCol {
-					orientation = "downConn"
-				} else if targetCol > originCol {
+				orientation := "downConn" // default
+				arrowCell := originCell
+				if targetCol > originCol {
 					orientation = "rightConn"
-				} else {
+				} else if targetCol < originCol {
 					orientation = "leftConn"
+					arrowCell = targetCell // Anchor left to target
 				}
 
-				shapes, err := createImprovedArrow(originCell, originCell, targetCell, orientation, float64(shapeWidth), float64(shapeHeight), cellWidth, cellHeight, cellPadding)
-				if err != nil {
-					fmt.Printf("Error creating connector arrow: %v\n", err)
-				} else {
-					for _, shape := range shapes {
-						file.AddShape("Sheet1", shape)
-					}
+				line, arrowhead := newArrowShape(arrowCell, originCell, targetCell, orientation, float64(shapeWidth), float64(shapeHeight), cellWidth, cellHeight, cellPadding)
+				file.AddShape("Sheet1", line)
+				if arrowhead != nil {
+					file.AddShape("Sheet1", arrowhead)
 				}
+			}
+		}
+
+		// --- Logic for drawing "false" branch ---
+		if targetIndex, exists := falseBranches[i]; exists {
+			hasFalseBranch = true
+			if targetCell, ok := shapeLocations[targetIndex]; ok {
+				// We have an origin and a target cell, draw the arrow
+				originCol, _, _ := excelize.CellNameToCoordinates(originCell)
+				targetCol, _, _ := excelize.CellNameToCoordinates(targetCell)
+				orientation := "upperRightConn" // default
+				arrowCell := originCell
+				if targetCol > originCol {
+					orientation = "upperRightConn"
+				} else if targetCol < originCol {
+					orientation = "upperLeftConn"
+					arrowCell = targetCell // Anchor left to target
+				}
+
+				line, arrowhead := newArrowShape(arrowCell, originCell, targetCell, orientation, float64(shapeWidth), float64(shapeHeight), cellWidth, cellHeight, cellPadding)
+				file.AddShape("Sheet1", line)
+				if arrowhead != nil {
+					file.AddShape("Sheet1", arrowhead)
+				}
+			}
+		}
+
+		// --- Logic for simple sequential connection ---
+		// If this is NOT a decision, and it does NOT have a custom branch,
+		// and it is NOT the last shape in the list...
+		if !isDecision && !hasTrueBranch && !hasFalseBranch && i < len(shapeTypes)-1 {
+			// Connect it to the next shape in the list (i+1)
+			targetCell := shapeLocations[i+1]
+			originCol, _, _ := excelize.CellNameToCoordinates(originCell)
+			targetCol, _, _ := excelize.CellNameToCoordinates(targetCell)
+
+			var orientation string
+			var arrowCell string
+			if originCol == targetCol {
+				orientation = "downConn"
+				arrowCell = originCell
+			} else if targetCol > originCol {
+				orientation = "rightConn"
+				arrowCell = originCell
+			} else {
+				orientation = "leftConn"
+				arrowCell = targetCell // Anchor to the target cell for left connections
+			}
+
+			line, arrowhead := newArrowShape(arrowCell, originCell, targetCell, orientation, float64(shapeWidth), float64(shapeHeight), cellWidth, cellHeight, cellPadding)
+			file.AddShape("Sheet1", line)
+			if arrowhead != nil {
+				file.AddShape("Sheet1", arrowhead)
 			}
 		}
 	}
 
-	filename := fmt.Sprintf("improved_flowchart_%d.xlsx", rand.Intn(10000))
-	w.Header().Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	// ... (rest of your handler, writing the file) ...
+	filename := fmt.Sprintf("flowchart_%d.xlsx", rand.Intn(10000))
+	w.Header().Set("Content-Type", "application/vnd.openxmlformats-officedocument/spreadsheetml.sheet")
 	w.Header().Set("Content-Disposition", "attachment; filename="+filename)
 	if err := file.Write(w); err != nil {
 		http.Error(w, "Failed to generate file", http.StatusInternalServerError)
 	}
 }
 
-// Helper functions
+// Pixels to points (for SetRowHeight)
 func pixelsToPoints(pixels float64) float64 {
 	if pixels == 0 {
 		return 0
 	}
-	return pixels * 3.0 / 4.0
+	return pixels * 3.0 / 4.0 // Adjusted for better accuracy
 }
 
+// Pixels to character units (for SetColWidth)
 func pixelsToCharUnits(pixels float64) float64 {
 	if pixels <= 0 {
 		return 0
 	}
+	// This is an approximation, Excel's calculation is complex
 	return (pixels - 5) / 7
 }
 
+// --- CRITICAL FIX: Removed math.Abs ---
+// We need the signed difference to determine direction (left vs. right)
 func getCellDifference(cell1, cell2 string) (width, height int, err error) {
 	col1, row1, err := excelize.CellNameToCoordinates(cell1)
 	if err != nil {
@@ -567,6 +460,7 @@ func getCellDifference(cell1, cell2 string) (width, height int, err error) {
 		return 0, 0, fmt.Errorf("invalid second cell name: %w", err)
 	}
 
+	// Return the signed difference
 	width = col2 - col1
 	height = row2 - row1
 
