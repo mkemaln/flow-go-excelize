@@ -36,6 +36,7 @@ the output file is a random name excel file.
 - change the mechanism of the decision diagram connection
 - connection method for decision diagram is using index-to-index based mapping, i.e 1:0 => means that index 1 shape (first decision) is connected to the index 0 (first rect shape) and will use that connection to make a connection line 
 - increase the lineWidth so the tip arrow of arrow shape is visible
+- example result of the input : ![result](https://files.catbox.moe/0euncq.png)
 - **ISSUE rn:**
 - still trying the workaroud so the line is printed first the the shape to prevent the stacking line over a shape
 - the placement logic of connecting to the upper shape is still at development, i hope for that part is the connection will consist of 3 lines like
