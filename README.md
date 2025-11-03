@@ -19,6 +19,10 @@ note: asterisk or * is a required query
 
 you can compile it or simply run the main.go file in the [cmd/server/main.go](cmd/server/main.go)
 
+```
+go run cmd/server/main.go
+```
+
 then input each query the 
 ```
 http://localhost:8080/excel?start=&width=&height=&gap=&pad=&orders=&shapes=
