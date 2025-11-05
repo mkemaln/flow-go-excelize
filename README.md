@@ -32,6 +32,18 @@ the output file is a random name excel file.
 
 # Changelog / Update
 
+### v0.0.3 - 05/11/2025
+- fixing the calculation of the line placing for upperLeftConn and upperRightConn
+- **planned TODO:**
+- change the placement of upperLeftConn and upperRightConn so it wont stack with other line
+- make only the decision diagram that will printed the `true` line from below
+- experimenting more
+
+example: ![result](https://files.catbox.moe/iq32jg.png)
+```
+http://localhost:8080/excel?shapes=rect,flowChartDecision,rect,rect,flowChartDecision,rect&start=G6&orders=1,3,2,3,2,4&width=80&height=40&pad=10&gap=1&false_branches=1:0,4:3&true_branches=1:2,4:5
+```
+
 ### v0.0.2 - 03/11/2025
 - change the mechanism of the decision diagram connection
 - connection method for decision diagram is using index-to-index based mapping, i.e 1:0 => means that index 1 shape (first decision) is connected to the index 0 (first rect shape) and will use that connection to make a connection line 
@@ -48,7 +60,7 @@ the output file is a random name excel file.
 
 ```
 
-example:
+example: ![result](https://files.catbox.moe/0euncq.png)
 
 ```
 http://localhost:8080/excel?shapes=rect,flowChartDecision,rect,rect,flowChartDecision,rect&start=G6&orders=1,2,3,3,4,4&width=80&height=40&pad=10&gap=1&false_branches=1:0,4:2&true_branches=1:2,4:5
