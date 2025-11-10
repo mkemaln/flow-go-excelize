@@ -49,7 +49,7 @@ func newFlowchartShape(cell, shapeType string, width, height, cellPadding uint) 
 	}
 }
 
-func newArrowShape(cell, originPos, targetPos, orientation string, shapeWidth, shapeHeight, cellWidth, cellHeight float64, arrowLength int) (*excelize.Shape, *excelize.Shape) {
+func newArrowShape(cell, originPos, targetPos, orientation string, shapeWidth, shapeHeight, cellWidth, cellHeight float64, arrowLength int) (*excelize.Shape, *excelize.Shape, *excelize.Shape) {
 	// lineWidth := 0.25
 	lineWidth := 1.5
 	// line := &excelize.Shape{
@@ -63,6 +63,12 @@ func newArrowShape(cell, originPos, targetPos, orientation string, shapeWidth, s
 	// 	Fill: excelize.Fill{Color: []string{"060270"}, Pattern: 1},
 	// }
 	line := &excelize.Shape{
+		Cell: cell,
+		Line: excelize.ShapeLine{Color: "000000", Width: &lineWidth},
+		Fill: excelize.Fill{Color: []string{"000000"}, Pattern: 1},
+	}
+
+	line2 := &excelize.Shape{
 		Cell: cell,
 		Line: excelize.ShapeLine{Color: "000000", Width: &lineWidth},
 		Fill: excelize.Fill{Color: []string{"000000"}, Pattern: 1},
@@ -111,7 +117,8 @@ func newArrowShape(cell, originPos, targetPos, orientation string, shapeWidth, s
 	case "rightConn":
 		arrowX := (cellWidth-shapeWidth)/2 + shapeWidth - (cellWidth-shapeWidth)/2
 		arrowY := cellHeight / 2
-		arrowWidth := (cellWidth-shapeWidth)/2 + cellWidth*(absWidthDiff-1) + cellWidth/2 + (cellWidth - shapeWidth) // add 1 padding
+		// arrowWidth := (cellWidth-shapeWidth)/2 + cellWidth*(absWidthDiff-1) + cellWidth/2 + (cellWidth - shapeWidth) // add 1 padding
+		arrowWidth := (cellWidth-shapeWidth)*absWidthDiff + cellWidth*(absWidthDiff) - cellWidth/2
 		arrowHeight := (cellHeight-shapeHeight)/2 + cellHeight*(absHeightDiff-1) + cellHeight/2
 
 		line.Type = "rect"
@@ -131,10 +138,42 @@ func newArrowShape(cell, originPos, targetPos, orientation string, shapeWidth, s
 			OffsetX: int(cellWidth) / 2,
 			OffsetY: int(cellHeight) / 2,
 		}
+	case "downRightConn":
+		arrowX := cellWidth / 2
+		arrowWidth := cellWidth*(absWidthDiff) + ((cellWidth - shapeWidth) / 2 * absWidthDiff)
+		// arrowHeight := (cellHeight-shapeWidth)/2 + cellHeight*(absHeightDiff-1) + cellHeight/2
+
+		line.Type = "rect"
+		line.Cell = cell
+		line.Width = 1
+		line.Height = uint(cellHeight-shapeHeight) / 2
+		line.Format = excelize.GraphicOptions{
+			OffsetX: int(arrowX),
+			OffsetY: int(cellHeight - (cellHeight - shapeHeight)),
+		}
+
+		line2.Type = "rect"
+		line2.Cell = fmt.Sprintf("%c%d", 'A'+colNum-1, rowNum+widthDiff)
+		line2.Width = uint(arrowWidth)
+		line2.Height = 1
+		line2.Format = excelize.GraphicOptions{
+			OffsetX: int(arrowX),
+			// OffsetY: int(cellHeight - 1),
+		}
+
+		arrowHead.Type = "downArrow"
+		arrowHead.Cell = targetPos
+		arrowHead.Width = 1
+		arrowHead.Height = uint(cellHeight-shapeHeight) / 2
+		arrowHead.Format = excelize.GraphicOptions{
+			OffsetX: int(arrowX),
+			// OffsetY: int(cellHeight) / 2,
+		}
 	case "leftConn":
 		arrowX := cellWidth / 2
 		arrowY := cellHeight / 2
-		arrowWidth := (cellWidth-shapeWidth)/2 + cellWidth*(absWidthDiff-1) + cellWidth/2 + (cellWidth - shapeWidth)
+		// arrowWidth := (cellWidth-shapeWidth)/2 + cellWidth*(absWidthDiff-1) + cellWidth/2 + (cellWidth - shapeWidth)
+		arrowWidth := (cellWidth-shapeWidth)*absWidthDiff + cellWidth*(absWidthDiff) - cellWidth/2
 		arrowHeight := (cellHeight-shapeHeight)/2 + cellHeight*(absHeightDiff-1) + cellHeight/2
 
 		line.Type = "rect"
@@ -155,11 +194,48 @@ func newArrowShape(cell, originPos, targetPos, orientation string, shapeWidth, s
 			OffsetX: int(cellWidth) / 2,
 			OffsetY: int(cellHeight) / 2,
 		}
+	case "downLeftConn":
+		arrowX := cellWidth / 2
+		arrowWidth := cellWidth*(absWidthDiff) + ((cellWidth - shapeWidth) / 2 * absWidthDiff)
+		// arrowHeight := (cellHeight-shapeWidth)/2 + cellHeight*(absHeightDiff-1) + cellHeight/2
+
+		line.Type = "rect"
+		line.Cell = originPos
+		line.Width = 1
+		line.Height = uint(cellHeight-shapeHeight) / 2
+		line.Format = excelize.GraphicOptions{
+			OffsetX: int(arrowX),
+			OffsetY: int(cellHeight - (cellHeight - shapeHeight)),
+		}
+
+		line2.Type = "rect"
+		line2.Cell = targetPos
+		line2.Width = uint(arrowWidth)
+		line2.Height = 1
+		line2.Format = excelize.GraphicOptions{
+			OffsetX: int(arrowX),
+			// OffsetY: int(cellHeight - 1),
+		}
+
+		arrowHead.Type = "downArrow"
+		arrowHead.Cell = targetPos
+		arrowHead.Width = 1
+		arrowHead.Height = uint(cellHeight-shapeHeight) / 2
+		arrowHead.Format = excelize.GraphicOptions{
+			OffsetX: int(arrowX),
+			// OffsetY: int(cellHeight) / 2,
+		}
 	case "upperRightConn":
-		arrowX := (cellWidth-shapeWidth)/2 + shapeWidth
+		arrowX := (cellWidth-shapeWidth)/4 + shapeWidth
 		arrowY := cellHeight / 2
-		arrowWidth := (cellWidth-shapeWidth)/2 + cellWidth*(absWidthDiff-1) + cellWidth/2 + (cellWidth - shapeWidth)
-		arrowHeight := (cellHeight-shapeHeight)/2 + cellHeight*(absHeightDiff-1) + shapeHeight/2
+		arrowWidth := (cellWidth-shapeWidth)*absWidthDiff + cellWidth*(absWidthDiff)
+		arrowHeight := cellHeight*(absHeightDiff) - ((cellHeight - shapeHeight) / 2 * absHeightDiff)
+
+		fmt.Printf("upperRightConn absWidth = %v, absHeight = %v\n", absWidthDiff, absHeightDiff)
+
+		if arrowWidth == 0 {
+			arrowWidth = cellWidth - shapeWidth
+		}
 
 		line.Type = "rect"
 		line.Cell = cell
@@ -170,39 +246,61 @@ func newArrowShape(cell, originPos, targetPos, orientation string, shapeWidth, s
 			OffsetY: int(arrowY),
 		}
 
-		arrowHead.Type = "upArrow"
+		line2.Type = "rect"
+		line2.Cell = targetPos
+		line2.Width = 1
+		line2.Height = uint(arrowHeight)
+		line2.Format = excelize.GraphicOptions{
+			OffsetX: int(cellWidth),
+			OffsetY: int(arrowY),
+		}
+
+		arrowHead.Type = "leftArrow"
 		arrowHead.Cell = targetPos
-		arrowHead.Width = 1
-		arrowHead.Height = uint(arrowHeight)
+		arrowHead.Width = uint(cellWidth - shapeWidth)
+		arrowHead.Height = 1
 		arrowHead.Format = excelize.GraphicOptions{
-			OffsetX: int(cellWidth) / 2,
-			OffsetY: int((cellHeight + shapeHeight) / 2),
+			OffsetX: int(arrowX),
+			OffsetY: int(cellHeight / 2),
 		}
 	case "upperLeftConn":
-		arrowX := cellWidth / 2
+		// arrowX := cellWidth / 2
 		arrowY := cellHeight / 2
-		arrowWidth := (cellWidth-shapeWidth)/2 + cellWidth*(absWidthDiff-1) + cellWidth/2 + (cellWidth - shapeWidth)
-		arrowHeight := (cellHeight-shapeHeight)/2 + cellHeight*(absHeightDiff-1) + shapeHeight/2
+		arrowWidth := (cellWidth-shapeWidth)*absWidthDiff + cellWidth*(absWidthDiff)
+		arrowHeight := cellHeight*(absHeightDiff) - ((cellHeight - shapeHeight) / 2 * absHeightDiff)
+
+		if arrowWidth == 0 {
+			arrowWidth = cellWidth - shapeWidth
+		}
 
 		line.Type = "rect"
 		line.Cell = fmt.Sprintf("%c%d", 'A'+(oriColNum+widthDiff-1), oriRowNum)
 		line.Width = uint(arrowWidth)
 		line.Height = 1
 		line.Format = excelize.GraphicOptions{
-			OffsetX: int(arrowX),
+			// OffsetX: int(arrowX),
 			OffsetY: int(arrowY),
 		}
 
-		arrowHead.Type = "upArrow"
+		line2.Type = "rect"
+		line2.Cell = targetPos
+		line2.Width = 1
+		line2.Height = uint(arrowHeight)
+		line2.Format = excelize.GraphicOptions{
+			// OffsetX: int(arrowX),
+			OffsetY: int(arrowY),
+		}
+
+		arrowHead.Type = "rightArrow"
 		arrowHead.Cell = targetPos
-		arrowHead.Width = 1
-		arrowHead.Height = uint(arrowHeight)
+		arrowHead.Width = uint(cellWidth - shapeWidth)
+		arrowHead.Height = 1
 		arrowHead.Format = excelize.GraphicOptions{
-			OffsetX: int(cellWidth) / 2,
-			OffsetY: int((cellHeight + shapeHeight) / 2),
+			// OffsetX: int(cellWidth) / 2,
+			OffsetY: int(arrowY),
 		}
 	}
-	return line, arrowHead
+	return line, line2, arrowHead
 }
 
 // --- REMOVED findCellByOrder function ---
@@ -356,15 +454,29 @@ func (h *ExcelHandler) GenerateExcel(w http.ResponseWriter, r *http.Request) {
 				targetCol, _, _ := excelize.CellNameToCoordinates(targetCell)
 				orientation := "downConn" // default
 				arrowCell := originCell
-				if targetCol > originCol {
-					orientation = "rightConn"
-				} else if targetCol < originCol {
-					orientation = "leftConn"
-					arrowCell = targetCell // Anchor left to target
+				if isDecision { // when the shape is decision
+					if targetCol > originCol {
+						orientation = "downRightConn"
+					} else if targetCol < originCol {
+						orientation = "downLeftConn"
+						arrowCell = targetCell
+					}
+				} else {
+					if targetCol > originCol {
+						orientation = "rightConn"
+					} else if targetCol < originCol {
+						orientation = "leftConn"
+						arrowCell = targetCell // Anchor left to target
+					}
 				}
 
-				line, arrowhead := newArrowShape(arrowCell, originCell, targetCell, orientation, float64(shapeWidth), float64(shapeHeight), cellWidth, cellHeight, cellPadding)
+				line, line2, arrowhead := newArrowShape(arrowCell, originCell, targetCell, orientation, float64(shapeWidth), float64(shapeHeight), cellWidth, cellHeight, cellPadding)
 				file.AddShape("Sheet1", line)
+
+				if line2 != nil {
+					file.AddShape("Sheet1", line2)
+				}
+
 				if arrowhead != nil {
 					file.AddShape("Sheet1", arrowhead)
 				}
@@ -387,8 +499,11 @@ func (h *ExcelHandler) GenerateExcel(w http.ResponseWriter, r *http.Request) {
 					arrowCell = targetCell // Anchor left to target
 				}
 
-				line, arrowhead := newArrowShape(arrowCell, originCell, targetCell, orientation, float64(shapeWidth), float64(shapeHeight), cellWidth, cellHeight, cellPadding)
+				line, line2, arrowhead := newArrowShape(arrowCell, originCell, targetCell, orientation, float64(shapeWidth), float64(shapeHeight), cellWidth, cellHeight, cellPadding)
 				file.AddShape("Sheet1", line)
+				if line2 != nil {
+					file.AddShape("Sheet1", line2)
+				}
 				if arrowhead != nil {
 					file.AddShape("Sheet1", arrowhead)
 				}
@@ -417,8 +532,11 @@ func (h *ExcelHandler) GenerateExcel(w http.ResponseWriter, r *http.Request) {
 				arrowCell = targetCell // Anchor to the target cell for left connections
 			}
 
-			line, arrowhead := newArrowShape(arrowCell, originCell, targetCell, orientation, float64(shapeWidth), float64(shapeHeight), cellWidth, cellHeight, cellPadding)
+			line, line2, arrowhead := newArrowShape(arrowCell, originCell, targetCell, orientation, float64(shapeWidth), float64(shapeHeight), cellWidth, cellHeight, cellPadding)
 			file.AddShape("Sheet1", line)
+			if line2 != nil {
+				file.AddShape("Sheet1", line2)
+			}
 			if arrowhead != nil {
 				file.AddShape("Sheet1", arrowhead)
 			}
